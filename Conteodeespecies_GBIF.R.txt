@@ -1,0 +1,89 @@
+#Instalar librerias en caso de no tenerlas
+
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(stringr)
+##Codigo creado por Geografia_en_viz
+##Este codigo tiene la intension de poder replicar el conteo estadistico 
+#de las espcies registradas en GBIF, siendo lo mas replicable posible
+sp <- st_read("E:/RUTA/sp.shp") #recuerda sustituir por tu ruta 
+
+# Agrupar por las primeras dos palabras
+sp_count <- sp %>%
+  st_drop_geometry() %>%
+  mutate(
+    especie_simple = str_extract(acceptedSc, "^\\S+\\s+\\S+")
+  ) %>%
+  count(especie_simple, sort = TRUE)
+
+# Ordenar por frecuencia
+sp_count$especie_simple <- factor(sp_count$especie_simple, levels = sp_count$especie_simple)
+
+# Graficar con etiquetas
+ggplot(sp_count, aes(x = especie_simple, y = n, fill = n)) +
+  geom_col() +
+  geom_text(aes(label = n), vjust = -0.3, size = 4) +  # etiquetas encima de las barras
+  scale_fill_gradient(low = "#B2DFDB", high = "#00695C") +
+  labs(
+    title = "Número de observaciones por especie",
+    x = "Especie",
+    y = "Número de observaciones",
+    fill = "Observaciones"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold")
+  ) +
+  ylim(0, max(sp_count$n) * 1.1)  # espacio para que no se corten las etiquetas
+
+
+print(sp_count)
+
+
+
+
+#graficar por municipio/Zona
+# Leer shapefile de límites municipales
+#En esta parte tienes que carga los limites Municipales del área de estudio:
+#Fuente: INEGI 2023
+Limites_mun <- st_read("E:/008_trabajos/Lucy/Limites_municipales.shp")
+
+# Asegurar que ambos shapefiles estén en la misma proyección
+sp <- st_transform(sp, st_crs(Limites_mun))
+
+# Cruce espacial para saber en qué municipio cae cada punto
+##aca tenemos que verificar el nombre del campo
+##SI tienes informacion de inegi dejalo, si no verifica el acomodo.
+sp_mun <- st_join(sp, Limites_mun["NOM_MUN"], left = FALSE)
+
+# Contar observaciones por municipio
+mun_count <- sp_mun %>%
+  st_drop_geometry() %>%
+  count(NOM_MUN, sort = TRUE)
+
+# Ordenar factor por número de observaciones
+mun_count$NOM_MUN <- factor(mun_count$NOM_MUN, levels = mun_count$NOM_MUN)
+
+# Graficar
+ggplot(mun_count, aes(x = NOM_MUN, y = n, fill = n)) +
+  geom_col() +
+  geom_text(aes(label = n), vjust = -0.3, size = 4) +
+  scale_fill_gradient(low = "#B2DFDB", high = "#00695C") +
+  labs(
+    title = "Número de observaciones de Phaseolus por municipio",
+    x = "Municipio",
+    y = "Número de observaciones",
+    fill = "Observaciones"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold")
+  ) +
+  ylim(0, max(mun_count$n) * 1.1)
+
+# Ver tabla en consola
+print(mun_count)
+
